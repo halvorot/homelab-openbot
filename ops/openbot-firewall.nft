@@ -12,6 +12,14 @@ table inet openbot_filter {
     }
   }
 
+  # Match the host port before Docker rewrites the destination to container port 3001.
+  chain caddy_ingress {
+    type filter hook prerouting priority mangle; policy accept;
+    iifname "lo" return
+    iifname "ens18" ip saddr 192.168.1.200 ip daddr 192.168.1.250 tcp dport 3010 counter return
+    fib daddr type local tcp dport 3010 counter drop
+  }
+
   chain input {
     type filter hook input priority filter - 10; policy accept;
     iifname "ob-computers" ct state established,related return
