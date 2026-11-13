@@ -70,7 +70,7 @@ Set `OPENBOT_BIND_IP` to the reserved LAN IP after ingress filtering is in place
 
 - Create a separate Google **Web application** OAuth client for OpenBot. Register `https://openbot.halvorteigen.no/api/auth/callback/google`. Fill the Google client ID and secret and set `INITIAL_ADMIN_EMAILS` to the approved Google identity. Set an allowed domain only for a domain you intend to admit. Cloudflare Access must enforce the exact email allowlist for consumer Gmail.
 - Enter the CopilotKit Intelligence API URL, gateway WebSocket URL and project key from the intended Intelligence project. The OpenBot server proxies the browser's gateway WebSocket on the application origin.
-- Set `BOT_PROVIDER` and its matching model API key. Choose a model available to your account or leave `BOT_MODEL` empty for the upstream default.
+- Set `BOT_PROVIDER` and its matching model API key. Choose a model available to your account or leave `BOT_MODEL` empty for the upstream default. For an OpenAI-compatible gateway such as 9Router, set `BOT_PROVIDER=openai`, `OPENAI_BASE_URL` to the gateway API base ending in `/v1`, `OPENAI_API_KEY` to a gateway key, and `BOT_MODEL` to the exact gateway model ID. Use HTTPS for a remote gateway.
 - Preserve the key encryption key with every backup. Rotate OAuth and provider credentials at their providers and redeploy. Rotate shared runtime tokens on both sides together via the runtime file and redeploy. For PostgreSQL change the existing role password in PostgreSQL during a maintenance window, then update the runtime file. Changing the Compose variable alone affects only initial database creation. Treat encryption-key changes as recovery-sensitive and follow upstream migration tooling before replacing it.
 
 ## GitHub and Tailscale

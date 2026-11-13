@@ -72,6 +72,7 @@ services:
       MANAGED_AGENT_AG_UI_URL: http://agent-langgraph:4201/ag-ui
       AGENT_ENDPOINT_ALLOWED_HOSTS: agent-langgraph:4201
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     ports:
@@ -140,6 +141,7 @@ services:
       AGENT_TOOL_TOKEN: ${AGENT_TOOL_TOKEN:?required}
       OPENBOT_TOOL_URL: http://server:3001/api/agent-tools/call
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     networks: [outbound]
