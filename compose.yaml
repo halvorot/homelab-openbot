@@ -15,7 +15,7 @@ x-database: &database
 services:
   postgres:
     <<: *service
-    image: ${POSTGRES_IMAGE:?required}
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
     environment:
       POSTGRES_DB: openbot
       POSTGRES_USER: openbot
@@ -32,7 +32,7 @@ services:
   migrate:
     <<: *service
     restart: "no"
-    image: ${SERVER_IMAGE:?required}
+    image: &server-image ghcr.io/copilotkit/openbot-server:v1.0.2
     command: [bun, scripts/migrate.ts]
     environment: *database
     networks: [data]
@@ -41,7 +41,7 @@ services:
         condition: service_healthy
   server:
     <<: *service
-    image: ${SERVER_IMAGE:?required}
+    image: *server-image
     environment:
       <<: *database
       OPENBOT_EDITION: team
@@ -98,7 +98,7 @@ services:
       retries: 12
   worker:
     <<: *service
-    image: ${SERVER_IMAGE:?required}
+    image: *server-image
     command: [bun, ../worker/src/index.ts]
     environment:
       <<: *database
@@ -111,12 +111,12 @@ services:
         condition: service_healthy
   supervisor:
     <<: *service
-    image: ${SUPERVISOR_IMAGE:?required}
+    image: ghcr.io/copilotkit/openbot-supervisor:v1.0.2
     environment:
       PORT: "4300"
       SUPERVISOR_TOKEN: ${SUPERVISOR_TOKEN:?required}
       COMPUTER_TOKEN: ${COMPUTER_TOKEN:?required}
-      COMPUTER_IMAGE: ${COMPUTER_IMAGE:?required}
+      COMPUTER_IMAGE: ghcr.io/copilotkit/openbot-agent-computer:v1.0.2
       COMPUTER_NAMESPACE: openbot
       COMPUTER_NETWORK: openbot_computers
       COMPUTER_RUNTIME: ${COMPUTER_RUNTIME:-}
@@ -133,7 +133,7 @@ services:
       retries: 12
   agent-langgraph:
     <<: *service
-    image: ${LANGGRAPH_IMAGE:?required}
+    image: ghcr.io/copilotkit/openbot-agent-langgraph:v1.0.2
     environment:
       BOT_PROVIDER: ${BOT_PROVIDER:?required}
       BOT_MODEL: ${BOT_MODEL:-}

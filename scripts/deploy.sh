@@ -7,12 +7,11 @@ source "$(dirname "$0")/common.sh"
 umask 077
 backup_dir=${OPENBOT_BACKUP_DIR:-/var/backups/openbot}
 test -s "$runtime_env"
-compose config --quiet
+computer=$(compose config --format json | jq -er '.services.supervisor.environment.COMPUTER_IMAGE')
 scripts/validate.sh --registry
 systemctl is-active --quiet openbot-firewall
 
 compose pull
-computer=$(jq -er '.images["agent-computer"].reference' openbot-images.json)
 docker pull "$computer"
 compose up -d --no-build --no-recreate --wait --wait-timeout 120 postgres
 

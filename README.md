@@ -1,6 +1,6 @@
 # OpenBot homelab
 
-OpenBot v1.0.2 on a dedicated Ubuntu VM. Compose runs the web UI/API, pgvector PostgreSQL, migrations, a routine worker, the Docker supervisor and a managed LangGraph agent. The supervisor starts browser computers on demand. Image pins come from the [OpenBot release manifest](https://github.com/CopilotKit/OpenBot/releases/tag/v1.0.2).
+OpenBot on a dedicated Ubuntu VM. Compose runs the web UI/API, pgvector PostgreSQL, migrations, a routine worker, the Docker supervisor and a managed LangGraph agent. The supervisor starts browser computers on demand. Image versions are declared in [Compose](compose.yaml).
 
 GitHub-hosted Actions validates PRs and deploys protected `main` over Tailscale. The public repository has no self-hosted runner. The deployment SSH key can only request the current `main` commit. A root-owned command fetches it from GitHub and deploys under a host lock. Merging to main grants code execution on this VM.
 
@@ -80,7 +80,7 @@ Set `OPENBOT_BIND_IP` to the reserved LAN IP after ingress filtering is in place
 3. Install Tailscale on the VM using the [Ubuntu instructions](https://tailscale.com/download/linux). Enroll the VM tagged `tag:openbot-vm`. Keep Tailscale SSH off for this host so OpenSSH enforces the forced command. Advertise no routes. In the tailnet policy grant `tag:openbot-ci` access to `tag:openbot-vm` on TCP 22 only. Check that no existing wildcard grant widens this permission.
 4. Create a [Tailscale OAuth client](https://tailscale.com/docs/integrations/github/github-action?tab=oauth+client) scoped to `tag:openbot-ci` for ephemeral CI devices. In the GitHub environment set `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`, `OPENBOT_DEPLOY_KEY` and `OPENBOT_KNOWN_HOSTS`. Set environment variable `OPENBOT_DEPLOY_HOST` to the VM's tailnet DNS name. Build the known-hosts line from that exact hostname and the public host key from `/etc/ssh/ssh_host_ed25519_key.pub` read through the Proxmox console or an already trusted admin SSH session.
 5. Run **Deploy OpenBot** manually on main for the first deploy. Verify the Actions result, then on the VM run `sudo bash -c 'source /opt/openbot/repo/scripts/common.sh; compose ps -a; compose logs --tail 10 worker'`. Look for successful migration, healthy services, and a fresh `routine-sweep` log.
-6. Install the [Mend Renovate GitHub App](https://github.com/apps/renovate) for this repo. Merge the onboarding PR after CI. Renovate groups the four OpenBot images. Validation checks every digest against the same official manifest, so a partial update fails. If registry tags and the manifest disagree, run `scripts/sync-images.sh vX.Y.Z` on the update PR and retry validation. Update PostgreSQL only within 17. Schedule any major database upgrade separately.
+6. Install the [Mend Renovate GitHub App](https://github.com/apps/renovate) for this repo. Merge the onboarding PR after CI. Renovate groups the four OpenBot image tags in Compose. CI and deployment resolve each tag and verify its digest against the official release manifest. If a version update fails this check, wait for the matching images and release manifest to be published. Registry tags can move. The pgvector tag tracks the extension version on PostgreSQL 17 and Debian Bookworm. Schedule any database major upgrade separately.
 
 ## Existing homelab integrations
 
