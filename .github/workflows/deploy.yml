@@ -1,0 +1,43 @@
+name: Deploy OpenBot
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: openbot-production
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/validate.yml
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:openbot-ci
+      - name: Deploy approved revision
+        env:
+          DEPLOY_KEY: ${{ secrets.OPENBOT_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OPENBOT_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.OPENBOT_DEPLOY_HOST }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          umask 077
+          scratch=$(mktemp -d)
+          trap 'rm -rf -- "$scratch"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$scratch/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$scratch/known_hosts"
+          ssh -T -i "$scratch/key" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$scratch/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "openbot-deploy@$DEPLOY_HOST" "$GITHUB_SHA"

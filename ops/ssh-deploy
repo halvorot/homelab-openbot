@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ! "${SSH_ORIGINAL_COMMAND:-}" =~ ^[a-f0-9]{40}$ ]]; then
+  echo 'Expected one approved main revision.' >&2
+  exit 2
+fi
+exec sudo -n /usr/local/sbin/openbot-deploy-from-github "$SSH_ORIGINAL_COMMAND"

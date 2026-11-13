@@ -1,0 +1,28 @@
+# Load only this table. Preserve Docker and Tailscale rules.
+table inet openbot_filter
+flush table inet openbot_filter
+table inet openbot_filter {
+  set nonpublic_v4 {
+    type ipv4_addr
+    flags interval
+    elements = {
+      0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8,
+      169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.168.0.0/16,
+      198.18.0.0/15, 224.0.0.0/3
+    }
+  }
+
+  chain input {
+    type filter hook input priority filter - 10; policy accept;
+    iifname "ob-computers" ct state established,related return
+    iifname "ob-computers" drop
+  }
+
+  chain forward {
+    type filter hook forward priority filter - 10; policy accept;
+    iifname "ob-computers" oifname "ob-computers" return
+    iifname "ob-computers" oifname "tailscale0" drop
+    iifname "ob-computers" ip daddr @nonpublic_v4 drop
+    iifname "ob-computers" meta nfproto ipv6 drop
+  }
+}

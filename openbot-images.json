@@ -1,0 +1,16 @@
+{
+  "images": {
+    "agent-computer": {
+      "reference": "ghcr.io/copilotkit/openbot-agent-computer:v1.0.2@sha256:f389716566320a6eb496be1aacba6a9e2c3fb36b684678cf99e8aef7aeb3c017"
+    },
+    "agent-langgraph": {
+      "reference": "ghcr.io/copilotkit/openbot-agent-langgraph:v1.0.2@sha256:a37f06898a98980ed3fae84aa5d03d00c64e2805e713b26e7c796e94ef2a709f"
+    },
+    "server": {
+      "reference": "ghcr.io/copilotkit/openbot-server:v1.0.2@sha256:013cc130d3dad2466e00e3cc68a1aef8f89eb60e21d8a7906f1592c3aea8bf3b"
+    },
+    "supervisor": {
+      "reference": "ghcr.io/copilotkit/openbot-supervisor:v1.0.2@sha256:f05defaa7665f49325e420fb5c9dbf939b470e4720005f5b44d09992003fafc6"
+    }
+  }
+}

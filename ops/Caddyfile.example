@@ -1,0 +1,7 @@
+http://openbot.halvorteigen.no {
+	@internal path /internal /internal/*
+	respond @internal 404
+	reverse_proxy OPENBOT_VM_LAN_IP:3010 {
+		header_up X-Forwarded-Proto https
+	}
+}

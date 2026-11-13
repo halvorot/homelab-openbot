@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+sha=${1:-}
+if [[ $# != 1 || ! "$sha" =~ ^[a-f0-9]{40}$ ]]; then
+  echo 'Expected one approved main revision.' >&2
+  exit 2
+fi
+umask 077
+exec 9>/run/lock/openbot-deploy.lock
+flock -w 300 9
+cd /opt/openbot/repo
+unset GIT_DIR GIT_WORK_TREE GIT_CONFIG GIT_CONFIG_COUNT
+git fetch --no-tags https://github.com/halvorot/homelab-openbot.git refs/heads/main
+if [[ "$sha" != "$(git rev-parse FETCH_HEAD)" ]]; then
+  echo 'Requested revision is no longer main. Deploy the current revision.' >&2
+  exit 1
+fi
+git checkout --detach "$sha"
+exec env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME=/root bash scripts/deploy.sh

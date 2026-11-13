@@ -1,0 +1,23 @@
+name: Validate
+on:
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Compose, shell and secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan repository and history
+        run: |
+          image=ghcr.io/gitleaks/gitleaks:v8.30.0@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9
+          docker run --rm -v "$PWD:/repo:ro" "$image" git /repo --redact --log-opts=--all
+          docker run --rm -v "$PWD:/repo:ro" "$image" dir /repo --redact
+      - run: shellcheck -x scripts/*.sh ops/deploy-from-github ops/ssh-deploy
+      - run: scripts/validate.sh --registry

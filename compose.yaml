@@ -1,0 +1,165 @@
+name: openbot
+
+x-service: &service
+  restart: unless-stopped
+  security_opt: [no-new-privileges:true]
+  logging:
+    driver: local
+    options:
+      max-size: 10m
+      max-file: "3"
+
+x-database: &database
+  DATABASE_URL: postgresql://openbot:${POSTGRES_PASSWORD:?required}@postgres:5432/openbot
+
+services:
+  postgres:
+    <<: *service
+    image: ${POSTGRES_IMAGE:?required}
+    environment:
+      POSTGRES_DB: openbot
+      POSTGRES_USER: openbot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks: [data]
+    mem_limit: 2g
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U openbot -d openbot]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    <<: *service
+    restart: "no"
+    image: ${SERVER_IMAGE:?required}
+    command: [bun, scripts/migrate.ts]
+    environment: *database
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  server:
+    <<: *service
+    image: ${SERVER_IMAGE:?required}
+    environment:
+      <<: *database
+      OPENBOT_EDITION: team
+      OPENBOT_PUBLIC_URL: https://openbot.halvorteigen.no
+      BETTER_AUTH_URL: https://openbot.halvorteigen.no
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?required}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_TENANT_ID: ${MICROSOFT_OAUTH_TENANT_ID:-}
+      OKTA_OAUTH_CLIENT_ID: ${OKTA_OAUTH_CLIENT_ID:-}
+      OKTA_OAUTH_CLIENT_SECRET: ${OKTA_OAUTH_CLIENT_SECRET:-}
+      OKTA_OAUTH_ISSUER: ${OKTA_OAUTH_ISSUER:-}
+      INITIAL_ADMIN_EMAILS: ${INITIAL_ADMIN_EMAILS:?required}
+      SIGNIN_ALLOWED_EMAIL_DOMAINS: ${SIGNIN_ALLOWED_EMAIL_DOMAINS:-}
+      KEY_ENCRYPTION_KEY: ${KEY_ENCRYPTION_KEY:?required}
+      INTELLIGENCE_API_URL: ${INTELLIGENCE_API_URL:?required}
+      INTELLIGENCE_GATEWAY_WS_URL: ${INTELLIGENCE_GATEWAY_WS_URL:?required}
+      CPK_INTELLIGENCE_API_KEY: ${CPK_INTELLIGENCE_API_KEY:?required}
+      INTELLIGENCE_GATEWAY_PROXY: "on"
+      COMPUTER_SUPERVISOR_URL: http://supervisor:4300
+      SUPERVISOR_TOKEN: ${SUPERVISOR_TOKEN:?required}
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:?required}
+      WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:?required}
+      AGENT_TOOL_TOKEN: ${AGENT_TOOL_TOKEN:?required}
+      MANAGED_AGENT_TOKEN: ${MANAGED_AGENT_TOKEN:?required}
+      MANAGED_AGENT_AG_UI_URL: http://agent-langgraph:4201/ag-ui
+      AGENT_ENDPOINT_ALLOWED_HOSTS: agent-langgraph:4201
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    ports:
+      - "${OPENBOT_BIND_IP:?required}:3010:3001"
+    networks:
+      data: {}
+      control: {}
+      computers: {}
+      outbound:
+        gw_priority: 1
+    mem_limit: 1g
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      supervisor:
+        condition: service_healthy
+      agent-langgraph:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, bun, -e, "if (!(await fetch('http://127.0.0.1:3001/health')).ok) process.exit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  worker:
+    <<: *service
+    image: ${SERVER_IMAGE:?required}
+    command: [bun, ../worker/src/index.ts]
+    environment:
+      <<: *database
+      SERVER_INTERNAL_URL: http://server:3001
+      WORKER_SHARED_SECRET: ${WORKER_SHARED_SECRET:?required}
+    networks: [data]
+    mem_limit: 512m
+    depends_on:
+      server:
+        condition: service_healthy
+  supervisor:
+    <<: *service
+    image: ${SUPERVISOR_IMAGE:?required}
+    environment:
+      PORT: "4300"
+      SUPERVISOR_TOKEN: ${SUPERVISOR_TOKEN:?required}
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:?required}
+      COMPUTER_IMAGE: ${COMPUTER_IMAGE:?required}
+      COMPUTER_NAMESPACE: openbot
+      COMPUTER_NETWORK: openbot_computers
+      COMPUTER_RUNTIME: ${COMPUTER_RUNTIME:-}
+      COMPUTER_MEMORY_BYTES: "1610612736"
+      COMPUTER_BROWSER_MODE: headed
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [control]
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD, bun, -e, "if (!(await (await fetch('http://127.0.0.1:4300/health')).json()).docker) process.exit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  agent-langgraph:
+    <<: *service
+    image: ${LANGGRAPH_IMAGE:?required}
+    environment:
+      BOT_PROVIDER: ${BOT_PROVIDER:?required}
+      BOT_MODEL: ${BOT_MODEL:-}
+      MANAGED_AGENT_TOKEN: ${MANAGED_AGENT_TOKEN:?required}
+      AGENT_TOOL_TOKEN: ${AGENT_TOOL_TOKEN:?required}
+      OPENBOT_TOOL_URL: http://server:3001/api/agent-tools/call
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    networks: [outbound]
+    mem_limit: 768m
+    healthcheck:
+      test: [CMD, bun, -e, "if (!(await fetch('http://127.0.0.1:4201/health')).ok) process.exit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+networks:
+  data:
+    internal: true
+  control:
+    internal: true
+  outbound: {}
+  computers:
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: ob-computers
+
+volumes:
+  postgres: {}
