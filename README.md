@@ -57,7 +57,7 @@ sudo systemctl enable --now openbot-firewall
 sudo nft list table inet openbot_filter
 ```
 
-In Proxmox, enable the firewall on the new VM's NIC. With console access, configure VM rules to allow TCP 22 from your admin source and TCP 3010 from the observed Caddy source only. Allow DHCP if used. Enable default inbound drop after testing those rules. Leave VM-wide outbound available for system updates, Tailscale, model APIs and Intelligence. The guest firewall blocks computer traffic to the host and private ranges. Add any locally routed public subnets to the blocked set. Explicitly test denied destinations including Proxmox, Hermes, n8n, both Docker engines, host gateway, tailnet peers and metadata IP. Verify the computer can still open a public HTTPS site. Docker-published ports need filtering outside Docker's NAT path, such as at Proxmox.
+The guest firewall filters the published TCP port 3010 before Docker translates it. The LAN allow rule matches Caddy at `192.168.1.200` and OpenBot at `192.168.1.250` on `ens18`. Reserve both addresses and check the interface name before installing the rules. This port-specific rule can be used with the Proxmox datacenter firewall disabled. If Proxmox filtering is active, allow the same Caddy source there and preserve SSH and DHCP access. Leave VM-wide outbound available for system updates, Tailscale, model APIs and Intelligence. The guest firewall blocks computer traffic to the host and private ranges. Add any locally routed public subnets to the blocked set. Explicitly test denied destinations including Proxmox, Hermes, n8n, both Docker engines, host gateway, tailnet peers and metadata IP. Verify the computer can still open a public HTTPS site.
 
 ## Runtime secrets
 
