@@ -1,35 +1,35 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "enabledManagers": ["github-actions", "custom.regex"],
+  "enabledManagers": ["github-actions", "docker-compose", "custom.regex"],
   "pinDigests": true,
   "automerge": false,
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/^openbot-images\\.json$/"],
+      "managerFilePatterns": ["/^compose\\.yaml$/"],
       "matchStrings": [
-        "\"reference\":\\s*\"(?<depName>ghcr\\.io/copilotkit/openbot-[a-z-]+):(?<currentValue>v[0-9.]+)@(?<currentDigest>sha256:[a-f0-9]+)\""
+        "COMPUTER_IMAGE: (?<depName>ghcr\\.io/copilotkit/openbot-agent-computer):(?<currentValue>v[0-9.]+)"
       ],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver-coerced"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/^images\\.env$/"],
-      "matchStrings": [
-        "POSTGRES_IMAGE=(?<depName>pgvector/pgvector):(?<currentValue>pg17)@(?<currentDigest>sha256:[a-f0-9]+)"
-      ],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "regex:^pg(?<major>17)$"
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
     {
+      "matchDatasources": ["docker"],
+      "pinDigests": false
+    },
+    {
       "matchPackageNames": ["/^ghcr\\.io/copilotkit/openbot-/"],
+      "versioning": "semver-coerced",
+      "allowedVersions": "/^v[0-9]+\\.[0-9]+\\.[0-9]+$/",
       "groupName": "OpenBot release",
       "changelogUrl": "https://github.com/CopilotKit/OpenBot/releases",
       "minimumReleaseAge": "1 day"
+    },
+    {
+      "matchPackageNames": ["pgvector/pgvector"],
+      "allowedVersions": "/^[0-9]+\\.[0-9]+\\.[0-9]+-pg17-bookworm$/"
     }
   ]
 }

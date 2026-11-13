@@ -11,17 +11,6 @@ fi
 
 scratch=$(mktemp -d)
 trap 'rm -rf -- "$scratch"' EXIT
-version=$(jq -er '
-  .images.server.reference | capture(":(?<version>v[0-9]+[.][0-9]+[.][0-9]+)@").version
-' openbot-images.json)
-jq -e '
-  .images | keys == ["agent-computer", "agent-langgraph", "server", "supervisor"]
-' openbot-images.json >/dev/null
-for component in server supervisor agent-computer agent-langgraph; do
-  jq -e --arg component "$component" --arg version "$version" '
-    .images[$component].reference | startswith("ghcr.io/copilotkit/openbot-" + $component + ":" + $version + "@") and
-    test("@sha256:[0-9a-f]{64}$")' openbot-images.json >/dev/null
-done
 runtime_env="$scratch/runtime.env"
 cp .env.example "$runtime_env"
 cat >> "$runtime_env" <<'ENV'
@@ -56,23 +45,46 @@ jq -e '
   ([.services | to_entries[] | select(.value.volumes[]?.source == "/var/run/docker.sock") | .key] == ["supervisor"]) and
   (all(.services | to_entries[]; . as $service | .value |
     (.privileged != true and .build == null and .network_mode != "host") and
-    (.image | test("@sha256:[0-9a-f]{64}$")) and
     ($service.key == "server" or .ports == null)))
 ' "$scratch/compose.json" >/dev/null
+
+version=$(jq -er '
+  .services.server.image | capture("^ghcr[.]io/copilotkit/openbot-server:(?<version>v[0-9]+[.][0-9]+[.][0-9]+)$").version
+' "$scratch/compose.json")
+images=$(jq -er --arg version "$version" '
+  .services as $services |
+  {
+    "agent-computer": $services.supervisor.environment.COMPUTER_IMAGE,
+    "agent-langgraph": $services["agent-langgraph"].image,
+    server: $services.server.image,
+    supervisor: $services.supervisor.image
+  } as $images |
+  select($services.worker.image == $images.server and $services.migrate.image == $images.server) |
+  select(all($images | to_entries[]; .value == ("ghcr.io/copilotkit/openbot-" + .key + ":" + $version))) |
+  $images | to_entries[] | [.key, .value] | @tsv
+' "$scratch/compose.json")
+postgres=$(jq -er '
+  .services.postgres.image | select(test("^pgvector/pgvector:[0-9]+[.][0-9]+[.][0-9]+-pg17-bookworm$"))
+' "$scratch/compose.json")
 
 if [[ "$mode" == --registry ]]; then
   curl --fail --silent --show-error --location --retry 3 --max-time 120 \
     "https://github.com/CopilotKit/OpenBot/releases/download/$version/container-images.json" -o "$scratch/upstream.json"
-  jq -e --arg version "$version" --slurpfile upstream "$scratch/upstream.json" '
-    $version == $upstream[0].version and
-    all(.images | to_entries[]; . as $pin | ($pin.value.reference | sub(":" + $version + "@"; "@")) == $upstream[0].images[$pin.key].reference)
-  ' openbot-images.json >/dev/null
-  images=$(compose config --images | sort -u)
-  computer=$(jq -er '.images["agent-computer"].reference' openbot-images.json)
-  while IFS= read -r image; do
-    docker buildx imagetools inspect --raw "$image" |
-      jq -e 'any(.manifests[]; .platform.os == "linux" and .platform.architecture == "amd64")' >/dev/null
-  done <<< "$images"$'\n'"$computer"
+  jq -e --arg version "$version" '.version == $version' "$scratch/upstream.json" >/dev/null
+
+  while IFS=$'\t' read -r component image; do
+    manifest=$(docker buildx imagetools inspect --format '{{json .Manifest}}' "$image")
+    jq -e 'any(.manifests[]; .platform.os == "linux" and .platform.architecture == "amd64")' <<< "$manifest" >/dev/null
+    if [[ "$component" != postgres ]]; then
+      digest=$(jq -er '.digest' <<< "$manifest")
+      reference="${image%:*}@$digest"
+      if ! jq -e --arg component "$component" --arg reference "$reference" \
+        '.images[$component].reference == $reference' "$scratch/upstream.json" >/dev/null; then
+        echo "$image does not match the upstream $version release manifest." >&2
+        exit 1
+      fi
+    fi
+  done <<< "$images"$'\npostgres\t'"$postgres"
 fi
 
 echo "Validated OpenBot $version ($mode)"
