@@ -31,11 +31,14 @@ OPENAI_BASE_URL=https://gateway.example.invalid/v1
 INTELLIGENCE_API_URL=https://intelligence.example.invalid
 INTELLIGENCE_GATEWAY_WS_URL=wss://intelligence.example.invalid
 CPK_INTELLIGENCE_API_KEY=ci-placeholder
+COMPOSIO_API_KEY=ci-placeholder
 ENV
 
 compose config --format json > "$scratch/compose.json"
 jq -e '
   (.networks.data.internal and .networks.control.internal) and
+  (.services.server.environment.COMPOSIO_API_KEY == "ci-placeholder") and
+  (all(.services | to_entries[] | select(.key != "server"); .value.environment.COMPOSIO_API_KEY == null)) and
   (.services.server.environment.OPENAI_BASE_URL == "https://gateway.example.invalid/v1") and
   (.services["agent-langgraph"].environment.OPENAI_BASE_URL == .services.server.environment.OPENAI_BASE_URL) and
   (.services.server.ports | length == 1 and .[0].host_ip == "127.0.0.1" and .[0].published == "3010") and

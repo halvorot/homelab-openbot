@@ -75,6 +75,8 @@ Set `OPENBOT_BIND_IP` to the reserved LAN IP after ingress filtering is in place
 - Set `BOT_PROVIDER` and its matching model API key. Choose a model available to your account or leave `BOT_MODEL` empty for the upstream default. For this deployment, set `BOT_PROVIDER=openai`, `OPENAI_BASE_URL=https://9router.halvorteigen.no/v1`, `OPENAI_API_KEY` to a dedicated 9Router key, and `BOT_MODEL` to the exact 9Router model ID.
 - Preserve the key encryption key with every backup. Rotate OAuth and provider credentials at their providers and redeploy. Rotate shared runtime tokens on both sides together via the runtime file and redeploy. For PostgreSQL change the existing role password in PostgreSQL during a maintenance window, then update the runtime file. Changing the Compose variable alone affects only initial database creation. Treat encryption-key changes as recovery-sensitive and follow upstream migration tooling before replacing it.
 
+For optional Composio support, set `COMPOSIO_API_KEY` in `/etc/openbot/runtime.env` to a Composio project key dedicated to OpenBot. Redeploy and check **Settings → Setup → More apps** in OpenBot. [OpenBot Composio guide](https://github.com/CopilotKit/OpenBot/blob/v1.0.2/docs/plugins/composio.md)
+
 ## GitHub and Tailscale
 
 1. In GitHub **Settings → Rules → Rulesets**, protect `main` against deletion and force pushes. Require pull requests and the **Compose, shell and secret scan** check after its first completed run. Require an independent approval if a second reviewer is available. GitHub cannot count the author's own approval.
